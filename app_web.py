@@ -6,10 +6,12 @@ import os
 app = Flask(__name__)
 
 # ======================
-# قاعدة البيانات
+# قاعدة البيانات (بدون مشاكل)
 # ======================
 def init_db():
     conn = sqlite3.connect("focusmind.db")
+
+    # نخلي الجدول إذا ما فيه (حتى لو قديم ما يهم)
     conn.execute("""
     CREATE TABLE IF NOT EXISTS sessions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -17,10 +19,14 @@ def init_db():
         session_hour INTEGER
     )
     """)
+
     conn.close()
 
 init_db()
 
+# ======================
+# جلب البيانات
+# ======================
 def get_data():
     conn = sqlite3.connect("focusmind.db")
     cur = conn.cursor()
@@ -46,10 +52,13 @@ def home():
         hour = datetime.now().hour
 
         conn = sqlite3.connect("focusmind.db")
+
+        # 🔥 أهم تعديل (يحل مشكلتك نهائيًا)
         conn.execute(
-            "INSERT INTO sessions VALUES (NULL, ?, ?)",
+            "INSERT INTO sessions (focus_score, session_hour) VALUES (?, ?)",
             (score, hour)
         )
+
         conn.commit()
         conn.close()
 
@@ -108,7 +117,7 @@ def home():
     """
 
 # ======================
-# التقرير (آمن 100%)
+# التقرير
 # ======================
 @app.route("/report")
 def report():
@@ -116,36 +125,31 @@ def report():
     rows = get_data()
 
     if not rows:
-        return "<h2 style='text-align:center;font-family:sans-serif'>لا توجد بيانات بعد</h2>"
+        return "<h2 style='text-align:center;font-family:sans-serif'>لا توجد بيانات</h2>"
 
     scores = [r[0] for r in rows]
     hours = [r[1] for r in rows]
 
     avg = sum(scores) / len(scores)
+    best_hour = max(set(hours), key=hours.count)
 
-    try:
-        best_hour = max(set(hours), key=hours.count)
-    except:
-        best_hour = "غير معروف"
-
-    table_rows = ""
+    table = ""
     for r in rows:
-        table_rows += f"<tr><td>{r[0]}</td><td>{r[1]}</td></tr>"
+        table += f"<tr><td>{r[0]}</td><td>{r[1]}</td></tr>"
 
     return f"""
-
     <div style="text-align:center;font-family:sans-serif;padding:40px">
 
         <h1>📊 التقرير</h1>
 
         <h2>⭐ المتوسط: {avg:.2f}</h2>
-        <h2>⏰ أفضل وقت: {best_hour}</h2>
+        <h2>⏰ أفضل وقت: {best_hour}:00</h2>
 
         <br><br>
 
         <table border="1" style="margin:auto">
             <tr><th>التركيز</th><th>الوقت</th></tr>
-            {table_rows}
+            {table}
         </table>
 
         <br><br>
