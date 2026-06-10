@@ -3,9 +3,6 @@ import sqlite3
 import pandas as pd
 from datetime import datetime
 import os
-import matplotlib.pyplot as plt
-import base64
-from io import BytesIO
 
 app = Flask(__name__)
 
@@ -32,21 +29,6 @@ def get_data():
     return df
 
 # ======================
-# رسم بياني
-# ======================
-def create_chart(df):
-    plt.figure()
-    plt.plot(df["session_hour"], df["focus_score"], marker="o")
-    plt.title("Focus Progress")
-    plt.xlabel("Hour")
-    plt.ylabel("Focus Score")
-
-    buf = BytesIO()
-    plt.savefig(buf, format="png")
-    buf.seek(0)
-    return base64.b64encode(buf.read()).decode()
-
-# ======================
 # الصفحة الرئيسية
 # ======================
 @app.route("/", methods=["GET", "POST"])
@@ -56,9 +38,9 @@ def home():
 
     if not df.empty:
         best_hour = df.groupby("session_hour")["focus_score"].mean().idxmax()
-        best_html = f"<p>⏰ أفضل وقت: <b>{best_hour}:00</b></p>"
+        best_html = f"<p>⏰ أفضل وقت للمذاكرة: <b>{best_hour}:00</b></p>"
     else:
-        best_html = "<p>⏰ لا يوجد بيانات بعد</p>"
+        best_html = "<p>⏰ لا توجد بيانات بعد</p>"
 
     if request.method == "POST":
         score = float(request.form["score"])
@@ -78,7 +60,7 @@ def home():
             <h1 id="timer">25:00</h1>
 
             <script>
-                let t = 25*60;
+                let t = 25 * 60;
 
                 let x = setInterval(()=>{
                     let m = Math.floor(t/60);
@@ -98,16 +80,14 @@ def home():
             </script>
 
             <br><br>
-            <a href="/" style="padding:10px 20px;background:#4CAF50;color:white;text-decoration:none;border-radius:10px">
-                رجوع
-            </a>
+            <a href="/">رجوع</a>
         </div>
         """
 
     return f"""
     <div style="text-align:center;font-family:sans-serif;background:#f4f4f4;padding:40px">
 
-        <h1>🔥 FocusMind Pro</h1>
+        <h1>🔥 FocusMind</h1>
 
         {best_html}
 
@@ -136,7 +116,7 @@ def home():
     """
 
 # ======================
-# داشبورد التقرير (مطوّر)
+# التقرير
 # ======================
 @app.route("/report")
 def report():
@@ -144,7 +124,7 @@ def report():
     df = get_data()
 
     if df.empty:
-        return "<h2 style='text-align:center;font-family:sans-serif'>لا توجد بيانات</h2>"
+        return "<h2 style='text-align:center'>لا توجد بيانات</h2>"
 
     avg = df["focus_score"].mean()
     best_hour = df.groupby("session_hour")["focus_score"].mean().idxmax()
@@ -152,43 +132,20 @@ def report():
     xp = len(df) * 10
     level = xp // 50
 
-    chart = create_chart(df)
-
     return f"""
-    <div style="font-family:sans-serif;background:#f4f6f8;padding:40px;text-align:center">
+    <div style="text-align:center;font-family:sans-serif;padding:40px">
 
         <h1>📊 لوحة التحكم</h1>
 
-        <div style="display:flex;justify-content:center;gap:20px;flex-wrap:wrap;margin-top:20px">
+        <h2>⭐ XP: {xp}</h2>
+        <h2>🏆 Level: {level}</h2>
+        <h3>📈 المتوسط: {avg:.2f}</h3>
 
-            <div style="background:white;padding:20px;border-radius:15px;width:200px;box-shadow:0 0 10px #ddd">
-                <h3>⭐ XP</h3>
-                <p style="font-size:22px">{xp}</p>
-            </div>
+        <p>⏰ أفضل وقت: {best_hour}:00</p>
 
-            <div style="background:white;padding:20px;border-radius:15px;width:200px;box-shadow:0 0 10px #ddd">
-                <h3>🏆 Level</h3>
-                <p style="font-size:22px">{level}</p>
-            </div>
+        <br><br>
 
-            <div style="background:white;padding:20px;border-radius:15px;width:200px;box-shadow:0 0 10px #ddd">
-                <h3>📈 المتوسط</h3>
-                <p style="font-size:22px">{avg:.2f}</p>
-            </div>
-
-        </div>
-
-        <div style="margin-top:30px;background:white;padding:15px;border-radius:15px;display:inline-block">
-            ⏰ أفضل وقت للمذاكرة: <b>{best_hour}:00</b>
-        </div>
-
-        <div style="margin-top:30px">
-            <img src="data:image/png;base64,{chart}" style="max-width:700px;border-radius:10px">
-        </div>
-
-        <div style="margin-top:30px;overflow:auto;background:white;padding:10px;border-radius:10px">
-            {df.to_html(index=False)}
-        </div>
+        {df.to_html(index=False)}
 
         <br><br>
 
