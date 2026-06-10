@@ -1,13 +1,12 @@
 from flask import Flask, request
 import sqlite3
-import pandas as pd
 from datetime import datetime
 import os
 
 app = Flask(__name__)
 
 # ======================
-# قاعدة البيانات الآمنة
+# قاعدة البيانات
 # ======================
 def init_db():
     conn = sqlite3.connect("focusmind.db")
@@ -24,27 +23,17 @@ init_db()
 
 def get_data():
     conn = sqlite3.connect("focusmind.db")
-    df = pd.read_sql_query("SELECT * FROM sessions", conn)
+    cur = conn.cursor()
+    cur.execute("SELECT focus_score, session_hour FROM sessions")
+    rows = cur.fetchall()
     conn.close()
-    return df
+    return rows
 
 # ======================
 # الصفحة الرئيسية
 # ======================
 @app.route("/", methods=["GET", "POST"])
 def home():
-
-    df = get_data()
-
-    best_html = ""
-    if not df.empty:
-        try:
-            best_hour = int(df.groupby("session_hour")["focus_score"].mean().idxmax())
-            best_html = f"<p>⏰ أفضل وقت للمذاكرة: <b>{best_hour}:00</b></p>"
-        except:
-            best_html = "<p>⏰ لا يوجد تحليل كافي</p>"
-    else:
-        best_html = "<p>⏰ لا توجد بيانات بعد</p>"
 
     if request.method == "POST":
         score = request.form.get("score", "5")
@@ -67,11 +56,11 @@ def home():
         return """
         <div style="text-align:center;font-family:sans-serif;padding:40px">
 
-            <h2>⏱️ جلسة تركيز بدأت</h2>
+            <h2>⏱️ تم بدء جلسة 25 دقيقة</h2>
             <h1 id="timer">25:00</h1>
 
             <script>
-                let t = 25 * 60;
+                let t = 25*60;
 
                 let x = setInterval(()=>{
                     let m = Math.floor(t/60);
@@ -84,128 +73,76 @@ def home():
 
                     if(t<0){
                         clearInterval(x);
-                        alert("🎉 انتهت جلسة التركيز");
+                        alert("🎉 انتهت الجلسة");
                         window.location.href="/report";
                     }
                 },1000);
             </script>
 
-            <p>ركز الآن 💪</p>
+            <a href="/">رجوع</a>
 
         </div>
         """
 
-    return f"""
-    <div style="text-align:center;font-family:sans-serif;background:#f2f4f8;padding:40px">
+    return """
+    <div style="text-align:center;font-family:sans-serif;background:#f4f4f4;padding:40px">
 
         <h1>🧠 FocusMind</h1>
-
-        {best_html}
 
         <form method="POST">
 
             <input name="score" type="number" min="1" max="10"
-            placeholder="مستوى التركيز (1-10)"
-            style="padding:10px;width:220px;border-radius:10px"><br><br>
+            placeholder="مستوى التركيز"
+            style="padding:10px;width:200px;border-radius:10px"><br><br>
 
-            <button style="padding:12px 25px;background:#2196F3;color:white;border:none;border-radius:10px">
+            <button style="padding:10px 20px;background:#2196F3;color:white;border:none;border-radius:10px">
                 🚀 ابدأ جلسة 25 دقيقة
             </button>
 
         </form>
 
         <br>
-
         <a href="/report">📊 التقرير</a>
-        <br><br>
-
-        <a href="/reset" style="color:red">🗑️ تصفير البيانات</a>
 
     </div>
     """
 
 # ======================
-# التقرير الاحترافي
+# التقرير (بسيط)
 # ======================
 @app.route("/report")
 def report():
 
-    df = get_data()
+    rows = get_data()
 
-    if df.empty:
-        return "<h2 style='text-align:center;font-family:sans-serif'>لا توجد بيانات بعد</h2>"
+    if not rows:
+        return "<h2 style='text-align:center'>لا توجد بيانات</h2>"
 
-    avg = df["focus_score"].mean()
-    best_hour = int(df.groupby("session_hour")["focus_score"].mean().idxmax())
+    scores = [r[0] for r in rows]
+    hours = [r[1] for r in rows]
 
-    xp = len(df) * 10
-    level = xp // 50
-
-    mood = "🔥 ممتاز" if avg >= 7 else "😐 متوسط" if avg >= 4 else "😴 يحتاج تحسين"
-
-    table_html = df.to_html(index=False)
+    avg = sum(scores) / len(scores)
+    best_hour = max(set(hours), key=hours.count)
 
     return f"""
-    <div style="font-family:sans-serif;background:#f5f6fa;padding:40px;text-align:center">
+    <div style="text-align:center;font-family:sans-serif;padding:40px">
 
-        <h1>📊 تقرير الأداء</h1>
+        <h1>📊 التقرير</h1>
 
-        <div style="display:flex;justify-content:center;gap:15px;flex-wrap:wrap;margin-top:20px">
-
-            <div style="background:white;padding:20px;border-radius:12px;width:180px">
-                <h3>⭐ XP</h3>
-                <p>{xp}</p>
-            </div>
-
-            <div style="background:white;padding:20px;border-radius:12px;width:180px">
-                <h3>🏆 Level</h3>
-                <p>{level}</p>
-            </div>
-
-            <div style="background:white;padding:20px;border-radius:12px;width:180px">
-                <h3>📈 المتوسط</h3>
-                <p>{avg:.2f}</p>
-            </div>
-
-        </div>
-
-        <br>
-
-        <h3>🧠 الحالة: {mood}</h3>
-
-        <h3>⏰ أفضل وقت: {best_hour}:00</h3>
-
-        <br>
-
-        <div style="background:white;padding:15px;border-radius:10px;overflow:auto">
-            {table_html}
-        </div>
+        <p>⭐ المتوسط: {avg:.2f}</p>
+        <p>⏰ أفضل وقت: {best_hour}:00</p>
 
         <br><br>
 
-        <a href="/" style="padding:10px 20px;background:#2196F3;color:white;text-decoration:none;border-radius:10px">
-            رجوع
-        </a>
+        <table border="1" style="margin:auto">
+            <tr><th>التركيز</th><th>الوقت</th></tr>
+            {''.join(f"<tr><td>{r[0]}</td><td>{r[1]}</td></tr>" for r in rows)}
+        </table>
 
-    </div>
-    """
+        <br><br>
 
-# ======================
-# تصفير آمن
-# ======================
-@app.route("/reset")
-def reset():
-    conn = sqlite3.connect("focusmind.db")
-    conn.execute("DELETE FROM sessions")
-    conn.commit()
-    conn.close()
+        <a href="/">رجوع</a>
 
-    return """
-    <div style="text-align:center;font-family:sans-serif;padding:40px">
-        <h2>🗑️ تم تصفير البيانات</h2>
-        <a href="/" style="padding:10px 20px;background:#2196F3;color:white;text-decoration:none;border-radius:10px">
-            رجوع
-        </a>
     </div>
     """
 
