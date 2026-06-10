@@ -56,11 +56,11 @@ def home():
         return """
         <div style="text-align:center;font-family:sans-serif;padding:40px">
 
-            <h2>⏱️ تم بدء جلسة 25 دقيقة</h2>
+            <h2>⏱️ جلسة 25 دقيقة بدأت</h2>
             <h1 id="timer">25:00</h1>
 
             <script>
-                let t = 25*60;
+                let t = 25 * 60;
 
                 let x = setInterval(()=>{
                     let m = Math.floor(t/60);
@@ -108,7 +108,7 @@ def home():
     """
 
 # ======================
-# التقرير (بسيط)
+# التقرير (آمن 100%)
 # ======================
 @app.route("/report")
 def report():
@@ -116,27 +116,36 @@ def report():
     rows = get_data()
 
     if not rows:
-        return "<h2 style='text-align:center'>لا توجد بيانات</h2>"
+        return "<h2 style='text-align:center;font-family:sans-serif'>لا توجد بيانات بعد</h2>"
 
     scores = [r[0] for r in rows]
     hours = [r[1] for r in rows]
 
     avg = sum(scores) / len(scores)
-    best_hour = max(set(hours), key=hours.count)
+
+    try:
+        best_hour = max(set(hours), key=hours.count)
+    except:
+        best_hour = "غير معروف"
+
+    table_rows = ""
+    for r in rows:
+        table_rows += f"<tr><td>{r[0]}</td><td>{r[1]}</td></tr>"
 
     return f"""
+
     <div style="text-align:center;font-family:sans-serif;padding:40px">
 
         <h1>📊 التقرير</h1>
 
-        <p>⭐ المتوسط: {avg:.2f}</p>
-        <p>⏰ أفضل وقت: {best_hour}:00</p>
+        <h2>⭐ المتوسط: {avg:.2f}</h2>
+        <h2>⏰ أفضل وقت: {best_hour}</h2>
 
         <br><br>
 
         <table border="1" style="margin:auto">
             <tr><th>التركيز</th><th>الوقت</th></tr>
-            {''.join(f"<tr><td>{r[0]}</td><td>{r[1]}</td></tr>" for r in rows)}
+            {table_rows}
         </table>
 
         <br><br>
