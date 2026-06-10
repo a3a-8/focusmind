@@ -7,7 +7,7 @@ import os
 app = Flask(__name__)
 
 # ======================
-# إنشاء قاعدة البيانات (ثابتة بدون مشاكل أعمدة)
+# قاعدة البيانات الآمنة
 # ======================
 def init_db():
     conn = sqlite3.connect("focusmind.db")
@@ -36,15 +36,23 @@ def home():
 
     df = get_data()
 
+    best_html = ""
     if not df.empty:
-        best_hour = df.groupby("session_hour")["focus_score"].mean().idxmax()
-        best_html = f"<p>⏰ أفضل وقت: <b>{best_hour}:00</b></p>"
+        try:
+            best_hour = int(df.groupby("session_hour")["focus_score"].mean().idxmax())
+            best_html = f"<p>⏰ أفضل وقت للمذاكرة: <b>{best_hour}:00</b></p>"
+        except:
+            best_html = "<p>⏰ لا يوجد تحليل كافي</p>"
     else:
-        best_html = "<p>⏰ لا توجد بيانات</p>"
+        best_html = "<p>⏰ لا توجد بيانات بعد</p>"
 
     if request.method == "POST":
         score = request.form.get("score", "5")
-        score = float(score)
+
+        try:
+            score = float(score)
+        except:
+            score = 5
 
         hour = datetime.now().hour
 
@@ -58,7 +66,8 @@ def home():
 
         return """
         <div style="text-align:center;font-family:sans-serif;padding:40px">
-            <h2>⏱️ جلسة بدأت</h2>
+
+            <h2>⏱️ جلسة تركيز بدأت</h2>
             <h1 id="timer">25:00</h1>
 
             <script>
@@ -75,33 +84,31 @@ def home():
 
                     if(t<0){
                         clearInterval(x);
-                        alert("🎉 انتهت الجلسة");
+                        alert("🎉 انتهت جلسة التركيز");
                         window.location.href="/report";
                     }
                 },1000);
             </script>
 
-            <br><br>
-            <a href="/" style="padding:10px 20px;background:#4CAF50;color:white;text-decoration:none;border-radius:10px">
-                رجوع
-            </a>
+            <p>ركز الآن 💪</p>
+
         </div>
         """
 
     return f"""
-    <div style="text-align:center;font-family:sans-serif;background:#f4f4f4;padding:40px">
+    <div style="text-align:center;font-family:sans-serif;background:#f2f4f8;padding:40px">
 
-        <h1>🔥 FocusMind</h1>
+        <h1>🧠 FocusMind</h1>
 
         {best_html}
 
         <form method="POST">
 
             <input name="score" type="number" min="1" max="10"
-            placeholder="مستوى التركيز"
-            style="padding:10px;width:200px;border-radius:10px"><br><br>
+            placeholder="مستوى التركيز (1-10)"
+            style="padding:10px;width:220px;border-radius:10px"><br><br>
 
-            <button style="padding:10px 20px;background:#2196F3;color:white;border:none;border-radius:10px">
+            <button style="padding:12px 25px;background:#2196F3;color:white;border:none;border-radius:10px">
                 🚀 ابدأ جلسة 25 دقيقة
             </button>
 
@@ -112,21 +119,13 @@ def home():
         <a href="/report">📊 التقرير</a>
         <br><br>
 
-        <a href="/reset" style="padding:10px 20px;background:red;color:white;text-decoration:none;border-radius:10px">
-            🗑️ تصفير البيانات
-        </a>
-
-        <br><br>
-
-        <a href="/delete-db" style="color:black">
-            ⚠️ حذف قاعدة البيانات بالكامل
-        </a>
+        <a href="/reset" style="color:red">🗑️ تصفير البيانات</a>
 
     </div>
     """
 
 # ======================
-# التقرير
+# التقرير الاحترافي
 # ======================
 @app.route("/report")
 def report():
@@ -134,28 +133,53 @@ def report():
     df = get_data()
 
     if df.empty:
-        return "<h2 style='text-align:center'>لا توجد بيانات</h2>"
+        return "<h2 style='text-align:center;font-family:sans-serif'>لا توجد بيانات بعد</h2>"
 
     avg = df["focus_score"].mean()
-    best_hour = df.groupby("session_hour")["focus_score"].mean().idxmax()
+    best_hour = int(df.groupby("session_hour")["focus_score"].mean().idxmax())
 
     xp = len(df) * 10
     level = xp // 50
 
+    mood = "🔥 ممتاز" if avg >= 7 else "😐 متوسط" if avg >= 4 else "😴 يحتاج تحسين"
+
+    table_html = df.to_html(index=False)
+
     return f"""
-    <div style="text-align:center;font-family:sans-serif;padding:40px">
+    <div style="font-family:sans-serif;background:#f5f6fa;padding:40px;text-align:center">
 
-        <h1>📊 لوحة التحكم</h1>
+        <h1>📊 تقرير الأداء</h1>
 
-        <h2>⭐ XP: {xp}</h2>
-        <h2>🏆 Level: {level}</h2>
-        <h3>📈 المتوسط: {avg:.2f}</h3>
+        <div style="display:flex;justify-content:center;gap:15px;flex-wrap:wrap;margin-top:20px">
 
-        <p>⏰ أفضل وقت: {best_hour}:00</p>
+            <div style="background:white;padding:20px;border-radius:12px;width:180px">
+                <h3>⭐ XP</h3>
+                <p>{xp}</p>
+            </div>
 
-        <br><br>
+            <div style="background:white;padding:20px;border-radius:12px;width:180px">
+                <h3>🏆 Level</h3>
+                <p>{level}</p>
+            </div>
 
-        {df.to_html(index=False)}
+            <div style="background:white;padding:20px;border-radius:12px;width:180px">
+                <h3>📈 المتوسط</h3>
+                <p>{avg:.2f}</p>
+            </div>
+
+        </div>
+
+        <br>
+
+        <h3>🧠 الحالة: {mood}</h3>
+
+        <h3>⏰ أفضل وقت: {best_hour}:00</h3>
+
+        <br>
+
+        <div style="background:white;padding:15px;border-radius:10px;overflow:auto">
+            {table_html}
+        </div>
 
         <br><br>
 
@@ -167,7 +191,7 @@ def report():
     """
 
 # ======================
-# تصفير البيانات
+# تصفير آمن
 # ======================
 @app.route("/reset")
 def reset():
@@ -179,25 +203,6 @@ def reset():
     return """
     <div style="text-align:center;font-family:sans-serif;padding:40px">
         <h2>🗑️ تم تصفير البيانات</h2>
-        <a href="/" style="padding:10px 20px;background:#2196F3;color:white;text-decoration:none;border-radius:10px">
-            رجوع
-        </a>
-    </div>
-    """
-
-# ======================
-# حذف قاعدة البيانات بالكامل (الحل النهائي لمشكلتك)
-# ======================
-@app.route("/delete-db")
-def delete_db():
-    import os
-
-    if os.path.exists("focusmind.db"):
-        os.remove("focusmind.db")
-
-    return """
-    <div style="text-align:center;font-family:sans-serif;padding:40px">
-        <h2>🗑️ تم حذف قاعدة البيانات بالكامل</h2>
         <a href="/" style="padding:10px 20px;background:#2196F3;color:white;text-decoration:none;border-radius:10px">
             رجوع
         </a>
