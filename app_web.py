@@ -7,7 +7,7 @@ import os
 app = Flask(__name__)
 
 # ======================
-# قاعدة البيانات
+# إنشاء قاعدة البيانات (ثابتة بدون مشاكل أعمدة)
 # ======================
 def init_db():
     conn = sqlite3.connect("focusmind.db")
@@ -38,12 +38,14 @@ def home():
 
     if not df.empty:
         best_hour = df.groupby("session_hour")["focus_score"].mean().idxmax()
-        best_html = f"<p>⏰ أفضل وقت للمذاكرة: <b>{best_hour}:00</b></p>"
+        best_html = f"<p>⏰ أفضل وقت: <b>{best_hour}:00</b></p>"
     else:
-        best_html = "<p>⏰ لا توجد بيانات بعد</p>"
+        best_html = "<p>⏰ لا توجد بيانات</p>"
 
     if request.method == "POST":
-        score = float(request.form["score"])
+        score = request.form.get("score", "5")
+        score = float(score)
+
         hour = datetime.now().hour
 
         conn = sqlite3.connect("focusmind.db")
@@ -80,7 +82,9 @@ def home():
             </script>
 
             <br><br>
-            <a href="/">رجوع</a>
+            <a href="/" style="padding:10px 20px;background:#4CAF50;color:white;text-decoration:none;border-radius:10px">
+                رجوع
+            </a>
         </div>
         """
 
@@ -110,6 +114,12 @@ def home():
 
         <a href="/reset" style="padding:10px 20px;background:red;color:white;text-decoration:none;border-radius:10px">
             🗑️ تصفير البيانات
+        </a>
+
+        <br><br>
+
+        <a href="/delete-db" style="color:black">
+            ⚠️ حذف قاعدة البيانات بالكامل
         </a>
 
     </div>
@@ -169,6 +179,25 @@ def reset():
     return """
     <div style="text-align:center;font-family:sans-serif;padding:40px">
         <h2>🗑️ تم تصفير البيانات</h2>
+        <a href="/" style="padding:10px 20px;background:#2196F3;color:white;text-decoration:none;border-radius:10px">
+            رجوع
+        </a>
+    </div>
+    """
+
+# ======================
+# حذف قاعدة البيانات بالكامل (الحل النهائي لمشكلتك)
+# ======================
+@app.route("/delete-db")
+def delete_db():
+    import os
+
+    if os.path.exists("focusmind.db"):
+        os.remove("focusmind.db")
+
+    return """
+    <div style="text-align:center;font-family:sans-serif;padding:40px">
+        <h2>🗑️ تم حذف قاعدة البيانات بالكامل</h2>
         <a href="/" style="padding:10px 20px;background:#2196F3;color:white;text-decoration:none;border-radius:10px">
             رجوع
         </a>
