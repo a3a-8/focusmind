@@ -7,7 +7,7 @@ import os
 app = Flask(__name__)
 
 # ======================
-# إنشاء قاعدة البيانات
+# قاعدة البيانات
 # ======================
 def init_db():
     conn = sqlite3.connect("focusmind.db")
@@ -39,22 +39,39 @@ def home():
         conn.commit()
         conn.close()
 
+        # 🔥 عداد 25 دقيقة الحقيقي
         return """
         <div style="text-align:center;font-family:sans-serif;padding:40px">
-            <h2>⏱️ بدأت جلسة 25 دقيقة</h2>
+
+            <h2>⏱️ جلسة التركيز بدأت</h2>
+            <h1 id="timer">25:00</h1>
             <p>ركز الآن ولا تغلق الصفحة</p>
 
             <script>
-                setTimeout(() => {
-                    alert("انتهت جلسة التركيز 🎉");
-                    window.location.href = "/report";
-                }, 1500000);
+                let time = 25 * 60;
+
+                let x = setInterval(() => {
+                    let minutes = Math.floor(time / 60);
+                    let seconds = time % 60;
+
+                    document.getElementById("timer").innerHTML =
+                        minutes + ":" + (seconds < 10 ? "0" + seconds : seconds);
+
+                    time--;
+
+                    if (time < 0) {
+                        clearInterval(x);
+                        alert("انتهت جلسة التركيز 🎉");
+                        window.location.href = "/report";
+                    }
+                }, 1000);
             </script>
 
             <br><br>
             <a href="/" style="padding:10px 20px;background:#4CAF50;color:white;text-decoration:none;border-radius:10px">
                 رجوع
             </a>
+
         </div>
         """
 
@@ -124,7 +141,7 @@ def report():
     """
 
 # ======================
-# تشغيل السيرفر (Render)
+# تشغيل Render
 # ======================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
